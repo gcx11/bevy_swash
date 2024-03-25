@@ -1,18 +1,13 @@
 use bevy::asset::io::Reader;
 use bevy::asset::LoadContext;
 use bevy::asset::{AssetLoader, AsyncReadExt};
-use bevy::diagnostic::DiagnosticsStore;
-use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::render::{Extract, RenderApp};
-use bevy::sprite::{
-    Anchor, ExtractedSprite, ExtractedSprites, MaterialMesh2dBundle, Mesh2dHandle, SpriteSystem,
-};
+use bevy::sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSystem};
 use bevy::utils::HashMap;
 use bevy::window::PrimaryWindow;
-use bevy::DefaultPlugins;
 use bevy_utils::thiserror::Error;
 use bevy_utils::BoxedFuture;
 use std::sync::Arc;
@@ -25,7 +20,7 @@ use swash::{CacheKey, FontRef, GlyphId};
 type SwashImage = swash::scale::image::Image;
 
 #[derive(Asset, TypePath, Debug, Clone)]
-struct OutlinedFont {
+pub struct OutlinedFont {
     data: Arc<Vec<u8>>,
     offset: u32,
     key: CacheKey,
@@ -51,7 +46,7 @@ pub enum OutlineFontLoaderError {
 }
 
 #[derive(Default)]
-struct OutlinedFontLoader;
+pub struct OutlinedFontLoader;
 
 impl AssetLoader for OutlinedFontLoader {
     type Asset = OutlinedFont;
@@ -89,13 +84,13 @@ impl AssetLoader for OutlinedFontLoader {
 }
 
 #[derive(Component, Clone, Debug, Default)]
-struct OutlinedText {
-    value: String,
-    style: OutlinedTextStyle,
+pub struct OutlinedText {
+    pub value: String,
+    pub style: OutlinedTextStyle,
 }
 
 #[derive(Debug, Clone, Default)]
-enum OutlineStyle {
+pub enum OutlineStyle {
     #[default]
     None,
     Outline {
@@ -105,22 +100,22 @@ enum OutlineStyle {
 }
 
 #[derive(Component, Clone, Debug, Default)]
-struct OutlinedTextStyle {
-    font: Handle<OutlinedFont>,
-    font_size: f32,
-    color: Color,
-    outline: OutlineStyle,
+pub struct OutlinedTextStyle {
+    pub font: Handle<OutlinedFont>,
+    pub font_size: f32,
+    pub color: Color,
+    pub outline: OutlineStyle,
 }
 
 #[derive(Bundle, Clone, Debug, Default)]
-struct OutlinedText2dBundle {
-    text: OutlinedText,
-    text_anchor: Anchor,
-    transform: Transform,
-    global_transform: GlobalTransform,
-    visibility: Visibility,
-    inherited_visibility: InheritedVisibility,
-    view_visibility: ViewVisibility,
+pub struct OutlinedText2dBundle {
+    pub text: OutlinedText,
+    pub text_anchor: Anchor,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub visibility: Visibility,
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
 }
 
 fn glyph_to_bitmap(glyph_id: GlyphId, scaler: &mut Scaler) -> SwashImage {
@@ -325,126 +320,20 @@ fn extract_outlined_text(
     }
 }
 
-#[derive(Component)]
-struct FpsCounter;
+pub struct OutlinedTextPlugin;
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    commands.spawn(Camera2dBundle::default());
-    commands.spawn(OutlinedText2dBundle {
-        text: OutlinedText {
-            value: "Outline!".to_string(),
-            style: OutlinedTextStyle {
-                font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Bold.ttf"),
-                font_size: 160.0,
-                color: Color::ORANGE,
-                outline: OutlineStyle::Outline {
-                    size: 10.0,
-                    color: Color::RED,
-                },
-            },
-        },
-        text_anchor: Anchor::Center,
-        transform: Transform::from_xyz(0.0, 0.0, 5.0),
-        ..default()
-    });
+impl Plugin for OutlinedTextPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(OutlinedGlyphs::default())
+            .init_asset::<OutlinedFont>()
+            .init_asset_loader::<OutlinedFontLoader>()
+            .add_systems(PostUpdate, create_missing_text);
 
-    commands.spawn(OutlinedText2dBundle {
-        text: OutlinedText {
-            value: "Bevy, bevy, bevy...".to_string(),
-            style: OutlinedTextStyle {
-                font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Regular.ttf"),
-                font_size: 20.0,
-                color: Color::WHITE,
-                outline: OutlineStyle::None,
-            },
-        },
-        text_anchor: Anchor::BottomLeft,
-        transform: Transform::from_xyz(-100.0, -100.0, 5.0),
-        ..default()
-    });
-
-    commands.spawn((
-        OutlinedText2dBundle {
-            text: OutlinedText {
-                value: "FPS".to_string(),
-                style: OutlinedTextStyle {
-                    font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Italic.ttf"),
-                    font_size: 40.0,
-                    color: Color::BLACK,
-                    outline: OutlineStyle::Outline {
-                        size: 5.0,
-                        color: Color::WHITE,
-                    },
-                },
-            },
-            text_anchor: Anchor::TopLeft,
-            transform: Transform::from_xyz(-300.0, 300.0, 5.0),
-            ..default()
-        },
-        FpsCounter,
-    ));
-
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: Mesh2dHandle(meshes.add(Circle { radius: 5.0 })),
-        material: materials.add(Color::YELLOW),
-        transform: Transform::from_xyz(0.0, 0.0, 7.0),
-        ..default()
-    });
-
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: Mesh2dHandle(meshes.add(Circle { radius: 2.0 })),
-        material: materials.add(Color::CYAN),
-        transform: Transform::from_xyz(-100.0, -100.0, 7.0),
-        ..default()
-    });
-}
-
-fn update_fps_text(
-    window_query: Query<&Window>,
-    camera_query: Query<&Transform, With<Camera>>,
-    diagnostics: Res<DiagnosticsStore>,
-    mut query: Query<(&mut Transform, &mut OutlinedText), (With<FpsCounter>, Without<Camera>)>,
-) {
-    let fps = diagnostics
-        .get(&FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(|fps| fps.smoothed())
-        .unwrap_or_default() as i32;
-
-    let window = window_query.get_single().unwrap();
-    let camera = camera_query.get_single().unwrap();
-
-    for (mut transform, mut text) in query.iter_mut() {
-        transform.translation.x = camera.translation.x - (window.width() / 2.0);
-        transform.translation.y = camera.translation.y + (window.height() / 2.0);
-
-        text.value = format!("FPS: {}", fps);
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_systems(
+                ExtractSchedule,
+                extract_outlined_text.after(SpriteSystem::ExtractSprites),
+            );
+        }
     }
-}
-
-fn main() {
-    let mut app = App::new();
-
-    app.add_plugins(DefaultPlugins)
-        .add_plugins(FrameTimeDiagnosticsPlugin::default())
-        .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(OutlinedGlyphs::default())
-        .init_asset::<OutlinedFont>()
-        .init_asset_loader::<OutlinedFontLoader>()
-        .add_systems(Startup, setup)
-        .add_systems(PostUpdate, create_missing_text)
-        .add_systems(Update, update_fps_text);
-
-    if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-        render_app.add_systems(
-            ExtractSchedule,
-            extract_outlined_text.after(SpriteSystem::ExtractSprites),
-        );
-    }
-
-    app.run();
 }
