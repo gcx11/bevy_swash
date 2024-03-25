@@ -304,7 +304,7 @@ fn extract_outlined_text(
                 extracted_sprites.sprites.insert(
                     entity,
                     ExtractedSprite {
-                        transform: transform * *global_transform,
+                        transform: *global_transform * transform,
                         color: Color::WHITE,
                         rect: None,
                         custom_size: None,
