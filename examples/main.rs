@@ -46,7 +46,7 @@ fn setup(
 
     commands.spawn(OutlinedText2dBundle {
         text: OutlinedText {
-            value: "Bevy, bevy, bevy...".to_string(),
+            value: "Bevy, bevy, bevy...\nAnother line".to_string(),
             style: OutlinedTextStyle {
                 font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Regular.ttf"),
                 font_size: 20.0,

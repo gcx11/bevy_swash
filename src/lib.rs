@@ -13,6 +13,7 @@ use bevy_utils::BoxedFuture;
 use std::sync::Arc;
 use swash::scale::{Render, ScaleContext, Scaler, Source};
 use swash::shape::ShapeContext;
+use swash::text::cluster::Whitespace;
 use swash::text::Script;
 use swash::zeno::{Cap, Format, Join, Stroke};
 use swash::{CacheKey, FontRef, GlyphId};
@@ -213,8 +214,11 @@ fn create_missing_text(
             let metrics = shaper.metrics();
             let ascent = metrics.ascent;
             let descent = metrics.descent;
+            let leading = metrics.leading;
 
+            let mut max_width = 0.0;
             let mut x = 0.0;
+            let mut y = 0.0;
             let mut scaler = scale_context
                 .builder(font_ref)
                 .size(size)
@@ -223,6 +227,12 @@ fn create_missing_text(
 
             shaper.add_str(&text.value);
             shaper.shape_with(|glyph_cluster| {
+                if glyph_cluster.info.whitespace() == Whitespace::Newline {
+                    max_width = if x > max_width { x } else { max_width };
+                    x = 0.0;
+                    y -= ascent + descent + leading;
+                }
+
                 for glyph in glyph_cluster.glyphs {
                     if let OutlineStyle::Outline {
                         size: outline_size,
@@ -240,7 +250,7 @@ fn create_missing_text(
 
                             glyphs.push(OutlinedGlyph {
                                 offset_x: x + outline_bitmap.placement.left as f32,
-                                offset_y: descent - outline_bitmap.placement.height as f32
+                                offset_y: y + descent - outline_bitmap.placement.height as f32
                                     + outline_bitmap.placement.top as f32,
                                 offset_z: -0.001, // TODO
                                 image: handle,
@@ -256,7 +266,7 @@ fn create_missing_text(
 
                         glyphs.push(OutlinedGlyph {
                             offset_x: x + bitmap.placement.left as f32,
-                            offset_y: descent - bitmap.placement.height as f32
+                            offset_y: y + descent - bitmap.placement.height as f32
                                 + bitmap.placement.top as f32,
                             offset_z: 0.0,
                             image: handle,
@@ -267,8 +277,8 @@ fn create_missing_text(
                 }
             });
 
-            let text_width = x;
-            let text_height = descent + ascent;
+            let text_width = if x > max_width { x } else { max_width };
+            let text_height = descent + ascent - y;
 
             let anchor_offset = anchor.as_vec();
             let anchor_offset_x = -anchor_offset.x * text_width - text_width / 2.0;
@@ -276,7 +286,7 @@ fn create_missing_text(
 
             for glyph in glyphs.iter_mut() {
                 glyph.offset_x += anchor_offset_x;
-                glyph.offset_y += anchor_offset_y;
+                glyph.offset_y += anchor_offset_y - y;
             }
 
             outlined_glyphs.cache.insert(entity, glyphs);
