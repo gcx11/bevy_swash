@@ -10,6 +10,7 @@ use bevy::utils::HashMap;
 use bevy::window::PrimaryWindow;
 use bevy_utils::thiserror::Error;
 use bevy_utils::BoxedFuture;
+use std::mem;
 use std::sync::Arc;
 use swash::scale::{Render, ScaleContext, Scaler, Source};
 use swash::shape::ShapeContext;
@@ -88,16 +89,7 @@ impl AssetLoader for OutlinedFontLoader {
 pub struct OutlinedText {
     pub value: String,
     pub style: OutlinedTextStyle,
-}
-
-#[derive(Debug, Clone, Default)]
-pub enum OutlineStyle {
-    #[default]
-    None,
-    Outline {
-        size: f32,
-        color: Color,
-    },
+    pub justify: JustifyOutlinedText,
 }
 
 #[derive(Component, Clone, Debug, Default)]
@@ -106,6 +98,24 @@ pub struct OutlinedTextStyle {
     pub font_size: f32,
     pub color: Color,
     pub outline: OutlineStyle,
+}
+
+#[derive(Debug, Clone, Default)]
+pub enum OutlineStyle {
+    #[default]
+    None,
+    Outline {
+        width: f32,
+        color: Color,
+    },
+}
+
+#[derive(Clone, Debug, Default)]
+pub enum JustifyOutlinedText {
+    #[default]
+    Left,
+    Center,
+    Right,
 }
 
 #[derive(Bundle, Clone, Debug, Default)]
@@ -156,8 +166,7 @@ fn bitmap_to_image(bitmap: &SwashImage, color: Color) -> Image {
         bitmap
             .data
             .iter()
-            .map(|alpha| vec![red, green, blue, *alpha])
-            .flatten()
+            .flat_map(|alpha| [red, green, blue, *alpha])
             .collect::<Vec<u8>>(),
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::default(),
@@ -174,6 +183,12 @@ struct OutlinedGlyph {
     offset_y: f32,
     offset_z: f32,
     image: Handle<Image>,
+}
+
+#[derive(Default)]
+struct OutlinedGlyphLine {
+    glyphs: Vec<OutlinedGlyph>,
+    width: f32,
 }
 
 fn create_missing_text(
@@ -200,7 +215,8 @@ fn create_missing_text(
         let handle = &text.style.font;
 
         if let Some(outlined_font) = fonts.get(handle) {
-            let mut glyphs: Vec<OutlinedGlyph> = Vec::new();
+            let mut lines: Vec<OutlinedGlyphLine> = Vec::new();
+            let mut current_line = OutlinedGlyphLine::default();
 
             let font_ref = outlined_font.as_ref();
             let size = text.style.font_size / scale_factor;
@@ -215,10 +231,9 @@ fn create_missing_text(
             let ascent = metrics.ascent;
             let descent = metrics.descent;
             let leading = metrics.leading;
+            let line_height = descent + ascent + leading;
 
-            let mut max_width = 0.0;
             let mut x = 0.0;
-            let mut y = 0.0;
             let mut scaler = scale_context
                 .builder(font_ref)
                 .size(size)
@@ -228,31 +243,31 @@ fn create_missing_text(
             shaper.add_str(&text.value);
             shaper.shape_with(|glyph_cluster| {
                 if glyph_cluster.info.whitespace() == Whitespace::Newline {
-                    max_width = if x > max_width { x } else { max_width };
+                    current_line.width = x;
                     x = 0.0;
-                    y -= ascent + descent + leading;
+                    lines.push(mem::take(&mut current_line));
                 }
 
                 for glyph in glyph_cluster.glyphs {
                     if let OutlineStyle::Outline {
-                        size: outline_size,
+                        width: outline_width,
                         color: outline_color,
                     } = text.style.outline
                     {
-                        let stroke_size = outline_size / scale_factor; // TODO required???
+                        let stroke_width = outline_width / scale_factor;
 
                         let outline_bitmap =
-                            glyph_outline_to_bitmap(glyph.id, stroke_size, &mut scaler);
+                            glyph_outline_to_bitmap(glyph.id, stroke_width, &mut scaler);
                         let outline_image = bitmap_to_image(&outline_bitmap, outline_color);
 
                         if outline_image.width() != 0 && outline_image.height() != 0 {
                             let handle = images.add(outline_image.clone());
 
-                            glyphs.push(OutlinedGlyph {
+                            current_line.glyphs.push(OutlinedGlyph {
                                 offset_x: x + outline_bitmap.placement.left as f32,
-                                offset_y: y + descent - outline_bitmap.placement.height as f32
+                                offset_y: descent - outline_bitmap.placement.height as f32
                                     + outline_bitmap.placement.top as f32,
-                                offset_z: -0.001, // TODO
+                                offset_z: -0.001,
                                 image: handle,
                             });
                         }
@@ -264,9 +279,9 @@ fn create_missing_text(
                     if image.width() != 0 && image.height() != 0 {
                         let handle = images.add(image.clone());
 
-                        glyphs.push(OutlinedGlyph {
+                        current_line.glyphs.push(OutlinedGlyph {
                             offset_x: x + bitmap.placement.left as f32,
-                            offset_y: y + descent - bitmap.placement.height as f32
+                            offset_y: descent - bitmap.placement.height as f32
                                 + bitmap.placement.top as f32,
                             offset_z: 0.0,
                             image: handle,
@@ -276,20 +291,37 @@ fn create_missing_text(
                     x += glyph.advance;
                 }
             });
+            current_line.width = x;
+            lines.push(current_line);
 
-            let text_width = if x > max_width { x } else { max_width };
-            let text_height = descent + ascent - y;
+            let line_count = lines.len();
+            let text_width = lines.iter().map(|line| line.width).fold(0.0, f32::max);
+            let text_height = descent + ascent + (lines.len() - 1) as f32 * line_height;
 
             let anchor_offset = anchor.as_vec();
             let anchor_offset_x = -anchor_offset.x * text_width - text_width / 2.0;
             let anchor_offset_y = -anchor_offset.y * text_height - text_height / 2.0;
 
-            for glyph in glyphs.iter_mut() {
-                glyph.offset_x += anchor_offset_x;
-                glyph.offset_y += anchor_offset_y - y;
+            for (i, line) in lines.iter_mut().enumerate() {
+                let padding = match text.justify {
+                    JustifyOutlinedText::Left => 0.0,
+                    JustifyOutlinedText::Center => (text_width - line.width) / 2.0,
+                    JustifyOutlinedText::Right => text_width - line.width,
+                };
+
+                for glyph in line.glyphs.iter_mut() {
+                    glyph.offset_x += anchor_offset_x + padding;
+                    glyph.offset_y += anchor_offset_y + (line_count - i - 1) as f32 * line_height;
+                }
             }
 
-            outlined_glyphs.cache.insert(entity, glyphs);
+            outlined_glyphs.cache.insert(
+                entity,
+                lines
+                    .iter_mut()
+                    .flat_map(|line| line.glyphs.drain(..))
+                    .collect(),
+            );
         }
     }
 }

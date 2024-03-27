@@ -7,14 +7,11 @@ use bevy::prelude::{
 };
 use bevy::sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle};
 use bevy::DefaultPlugins;
-use bevy_swash::OutlineStyle;
-use bevy_swash::OutlinedText;
+use bevy_swash::{
+    JustifyOutlinedText, OutlineStyle, OutlinedFont, OutlinedText, OutlinedText2dBundle,
+    OutlinedTextPlugin, OutlinedTextStyle,
+};
 use bevy_utils::default;
-
-use bevy_swash::OutlinedFont;
-use bevy_swash::OutlinedText2dBundle;
-use bevy_swash::OutlinedTextPlugin;
-use bevy_swash::OutlinedTextStyle;
 
 #[derive(Component)]
 struct FpsCounter;
@@ -29,12 +26,13 @@ fn setup(
     commands.spawn(OutlinedText2dBundle {
         text: OutlinedText {
             value: "Outline!".to_string(),
+            justify: JustifyOutlinedText::Left,
             style: OutlinedTextStyle {
                 font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Bold.ttf"),
                 font_size: 160.0,
                 color: Color::ORANGE,
                 outline: OutlineStyle::Outline {
-                    size: 10.0,
+                    width: 10.0,
                     color: Color::RED,
                 },
             },
@@ -47,6 +45,7 @@ fn setup(
     commands.spawn(OutlinedText2dBundle {
         text: OutlinedText {
             value: "Bevy, bevy, bevy...\nAnother line".to_string(),
+            justify: JustifyOutlinedText::Center,
             style: OutlinedTextStyle {
                 font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Regular.ttf"),
                 font_size: 20.0,
@@ -63,12 +62,13 @@ fn setup(
         OutlinedText2dBundle {
             text: OutlinedText {
                 value: "FPS".to_string(),
+                justify: JustifyOutlinedText::Left,
                 style: OutlinedTextStyle {
                     font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Italic.ttf"),
                     font_size: 40.0,
                     color: Color::BLACK,
                     outline: OutlineStyle::Outline {
-                        size: 5.0,
+                        width: 5.0,
                         color: Color::WHITE,
                     },
                 },
