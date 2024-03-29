@@ -226,115 +226,132 @@ fn create_missing_text(
         let handle = &text.style.font;
 
         if let Some(outlined_font) = fonts.get(handle) {
-            let mut lines: Vec<OutlinedGlyphLine> = Vec::new();
-            let mut current_line = OutlinedGlyphLine::default();
+            let glyphs = create_glyphs(
+                &mut images,
+                &mut shape_context,
+                &mut scale_context,
+                text,
+                anchor,
+                outlined_font.as_ref(),
+                scale_factor,
+            );
 
-            let font_ref = outlined_font.as_ref();
-            let size = text.style.font_size / scale_factor;
+            outlined_glyphs.cache.insert(entity, glyphs);
+        }
+    }
+}
 
-            let mut shaper = shape_context
-                .builder(font_ref)
-                .script(Script::Latin)
-                .size(size)
-                .build();
+fn create_glyphs(
+    images: &mut ResMut<Assets<Image>>,
+    shape_context: &mut ShapeContext,
+    scale_context: &mut ScaleContext,
+    text: Ref<OutlinedText>,
+    anchor: Ref<Anchor>,
+    font_ref: FontRef,
+    scale_factor: f32,
+) -> Vec<OutlinedGlyph> {
+    let mut lines: Vec<OutlinedGlyphLine> = Vec::new();
+    let mut current_line = OutlinedGlyphLine::default();
 
-            let metrics = shaper.metrics();
-            let ascent = metrics.ascent;
-            let descent = metrics.descent;
-            let leading = metrics.leading;
-            let line_height = descent + ascent + leading;
+    let size = text.style.font_size / scale_factor;
 
-            let mut x = 0.0;
-            let mut scaler = scale_context
-                .builder(font_ref)
-                .size(size)
-                .hint(true)
-                .build();
+    let mut shaper = shape_context
+        .builder(font_ref)
+        .script(Script::Latin)
+        .size(size)
+        .build();
 
-            shaper.add_str(&text.value);
-            shaper.shape_with(|glyph_cluster| {
-                if glyph_cluster.info.whitespace() == Whitespace::Newline {
-                    current_line.width = x;
-                    x = 0.0;
-                    lines.push(mem::take(&mut current_line));
-                }
+    let metrics = shaper.metrics();
+    let ascent = metrics.ascent;
+    let descent = metrics.descent;
+    let leading = metrics.leading;
+    let line_height = descent + ascent + leading;
 
-                for glyph in glyph_cluster.glyphs {
-                    if let OutlineStyle::Outline {
-                        width: outline_width,
-                        color: outline_color,
-                    } = text.style.outline
-                    {
-                        let stroke_width = outline_width / scale_factor;
+    let mut x = 0.0;
+    let mut scaler = scale_context
+        .builder(font_ref)
+        .size(size)
+        .hint(true)
+        .build();
 
-                        let outline_bitmap =
-                            glyph_outline_to_bitmap(glyph.id, stroke_width, &mut scaler);
-                        let outline_image = bitmap_to_image(&outline_bitmap, outline_color);
-
-                        if outline_image.width() != 0 && outline_image.height() != 0 {
-                            let handle = images.add(outline_image.clone());
-
-                            current_line.glyphs.push(OutlinedGlyph {
-                                offset_x: x + outline_bitmap.placement.left as f32,
-                                offset_y: descent - outline_bitmap.placement.height as f32
-                                    + outline_bitmap.placement.top as f32,
-                                offset_z: -0.001,
-                                image: handle,
-                            });
-                        }
-                    }
-
-                    let bitmap = glyph_to_bitmap(glyph.id, &mut scaler);
-                    let image = bitmap_to_image(&bitmap, text.style.color);
-
-                    if image.width() != 0 && image.height() != 0 {
-                        let handle = images.add(image.clone());
-
-                        current_line.glyphs.push(OutlinedGlyph {
-                            offset_x: x + bitmap.placement.left as f32,
-                            offset_y: descent - bitmap.placement.height as f32
-                                + bitmap.placement.top as f32,
-                            offset_z: 0.0,
-                            image: handle,
-                        });
-                    }
-
-                    x += glyph.advance;
-                }
-            });
+    shaper.add_str(&text.value);
+    shaper.shape_with(|glyph_cluster| {
+        if glyph_cluster.info.whitespace() == Whitespace::Newline {
             current_line.width = x;
-            lines.push(current_line);
+            x = 0.0;
+            lines.push(mem::take(&mut current_line));
+        }
 
-            let line_count = lines.len();
-            let text_width = lines.iter().map(|line| line.width).fold(0.0, f32::max);
-            let text_height = descent + ascent + (lines.len() - 1) as f32 * line_height;
+        for glyph in glyph_cluster.glyphs {
+            if let OutlineStyle::Outline {
+                width: outline_width,
+                color: outline_color,
+            } = text.style.outline
+            {
+                let stroke_width = outline_width / scale_factor;
 
-            let anchor_offset = anchor.as_vec();
-            let anchor_offset_x = -anchor_offset.x * text_width - text_width / 2.0;
-            let anchor_offset_y = -anchor_offset.y * text_height - text_height / 2.0;
+                let outline_bitmap = glyph_outline_to_bitmap(glyph.id, stroke_width, &mut scaler);
+                let outline_image = bitmap_to_image(&outline_bitmap, outline_color);
 
-            for (i, line) in lines.iter_mut().enumerate() {
-                let padding = match text.justify {
-                    JustifyOutlinedText::Left => 0.0,
-                    JustifyOutlinedText::Center => (text_width - line.width) / 2.0,
-                    JustifyOutlinedText::Right => text_width - line.width,
-                };
+                if outline_image.width() != 0 && outline_image.height() != 0 {
+                    let handle = images.add(outline_image.clone());
 
-                for glyph in line.glyphs.iter_mut() {
-                    glyph.offset_x += anchor_offset_x + padding;
-                    glyph.offset_y += anchor_offset_y + (line_count - i - 1) as f32 * line_height;
+                    current_line.glyphs.push(OutlinedGlyph {
+                        offset_x: x + outline_bitmap.placement.left as f32,
+                        offset_y: descent - outline_bitmap.placement.height as f32
+                            + outline_bitmap.placement.top as f32,
+                        offset_z: -0.001,
+                        image: handle,
+                    });
                 }
             }
 
-            outlined_glyphs.cache.insert(
-                entity,
-                lines
-                    .iter_mut()
-                    .flat_map(|line| line.glyphs.drain(..))
-                    .collect(),
-            );
+            let bitmap = glyph_to_bitmap(glyph.id, &mut scaler);
+            let image = bitmap_to_image(&bitmap, text.style.color);
+
+            if image.width() != 0 && image.height() != 0 {
+                let handle = images.add(image.clone());
+
+                current_line.glyphs.push(OutlinedGlyph {
+                    offset_x: x + bitmap.placement.left as f32,
+                    offset_y: descent - bitmap.placement.height as f32
+                        + bitmap.placement.top as f32,
+                    offset_z: 0.0,
+                    image: handle,
+                });
+            }
+
+            x += glyph.advance;
+        }
+    });
+    current_line.width = x;
+    lines.push(current_line);
+
+    let line_count = lines.len();
+    let text_width = lines.iter().map(|line| line.width).fold(0.0, f32::max);
+    let text_height = descent + ascent + (lines.len() - 1) as f32 * line_height;
+
+    let anchor_offset = anchor.as_vec();
+    let anchor_offset_x = -anchor_offset.x * text_width - text_width / 2.0;
+    let anchor_offset_y = -anchor_offset.y * text_height - text_height / 2.0;
+
+    for (i, line) in lines.iter_mut().enumerate() {
+        let padding = match text.justify {
+            JustifyOutlinedText::Left => 0.0,
+            JustifyOutlinedText::Center => (text_width - line.width) / 2.0,
+            JustifyOutlinedText::Right => text_width - line.width,
+        };
+
+        for glyph in line.glyphs.iter_mut() {
+            glyph.offset_x += anchor_offset_x + padding;
+            glyph.offset_y += anchor_offset_y + (line_count - i - 1) as f32 * line_height;
         }
     }
+
+    lines
+        .iter_mut()
+        .flat_map(|line| line.glyphs.drain(..))
+        .collect()
 }
 
 fn extract_outlined_text(
