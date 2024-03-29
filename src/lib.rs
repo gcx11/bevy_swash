@@ -294,7 +294,7 @@ fn create_glyphs(
                 let outline_image = bitmap_to_image(&outline_bitmap, outline_color);
 
                 if outline_image.width() != 0 && outline_image.height() != 0 {
-                    let handle = images.add(outline_image.clone());
+                    let handle = images.add(outline_image);
 
                     current_line.glyphs.push(OutlinedGlyph {
                         offset_x: x + outline_bitmap.placement.left as f32,
@@ -310,7 +310,7 @@ fn create_glyphs(
             let image = bitmap_to_image(&bitmap, text.style.color);
 
             if image.width() != 0 && image.height() != 0 {
-                let handle = images.add(image.clone());
+                let handle = images.add(image);
 
                 current_line.glyphs.push(OutlinedGlyph {
                     offset_x: x + bitmap.placement.left as f32,
@@ -348,10 +348,7 @@ fn create_glyphs(
         }
     }
 
-    lines
-        .iter_mut()
-        .flat_map(|line| line.glyphs.drain(..))
-        .collect()
+    lines.into_iter().flat_map(|line| line.glyphs).collect()
 }
 
 fn extract_outlined_text(
