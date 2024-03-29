@@ -7,7 +7,7 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::render::{Extract, RenderApp};
 use bevy::sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSystem};
 use bevy::utils::HashMap;
-use bevy::window::PrimaryWindow;
+use bevy::window::{PrimaryWindow, WindowScaleFactorChanged};
 use bevy_utils::thiserror::Error;
 use bevy_utils::BoxedFuture;
 use std::mem;
@@ -193,12 +193,15 @@ struct OutlinedGlyphLine {
 
 fn create_missing_text(
     fonts: Res<Assets<OutlinedFont>>,
-    text_query: Query<(Entity, &OutlinedText, &Anchor), Changed<OutlinedText>>,
+    text_query: Query<(Entity, Ref<OutlinedText>, Ref<Anchor>)>,
     mut removed: RemovedComponents<OutlinedText>,
+    mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut images: ResMut<Assets<Image>>,
     mut outlined_glyphs: ResMut<OutlinedGlyphs>,
     windows: Query<&Window, With<PrimaryWindow>>,
 ) {
+    let factor_changed = scale_factor_changed.read().last().is_some();
+
     for entity in removed.read() {
         outlined_glyphs.cache.remove(&entity);
     }
@@ -212,6 +215,14 @@ fn create_missing_text(
     let mut scale_context = ScaleContext::new();
 
     for (entity, text, anchor) in text_query.iter() {
+        if !factor_changed
+            && !text.is_changed()
+            && !anchor.is_changed()
+            && outlined_glyphs.cache.contains_key(&entity)
+        {
+            continue;
+        }
+
         let handle = &text.style.font;
 
         if let Some(outlined_font) = fonts.get(handle) {
