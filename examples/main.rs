@@ -8,8 +8,8 @@ use bevy::prelude::{
 use bevy::sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle};
 use bevy::DefaultPlugins;
 use bevy_swash::{
-    JustifyOutlinedText, OutlineStyle, OutlinedFont, OutlinedText, OutlinedText2dBundle,
-    OutlinedTextPlugin, OutlinedTextStyle,
+    JustifyOutlinedText, OutlineStyle, OutlinedFont, OutlinedFontStyle, OutlinedText,
+    OutlinedText2dBundle, OutlinedTextPlugin, OutlinedTextSection,
 };
 use bevy_utils::default;
 
@@ -25,16 +25,28 @@ fn setup(
     commands.spawn(Camera2dBundle::default());
     commands.spawn(OutlinedText2dBundle {
         text: OutlinedText {
-            value: "Outline!".to_string(),
-            justify: JustifyOutlinedText::Left,
-            style: OutlinedTextStyle {
-                font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Bold.ttf"),
-                font_size: 160.0,
-                color: Color::ORANGE,
-                outline: OutlineStyle::Outline {
-                    width: 10.0,
-                    color: Color::RED,
+            sections: vec![
+                OutlinedTextSection {
+                    value: "Outline".to_string(),
+                    color: Color::ORANGE,
+                    outline: OutlineStyle::Outline {
+                        width: 10.0,
+                        color: Color::RED,
+                    },
                 },
+                OutlinedTextSection {
+                    value: "!".to_string(),
+                    color: Color::CYAN,
+                    outline: OutlineStyle::Outline {
+                        width: 10.0,
+                        color: Color::BLUE,
+                    },
+                },
+            ],
+            justify: JustifyOutlinedText::Left,
+            font_style: OutlinedFontStyle {
+                font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Bold.ttf"),
+                size: 160.0,
             },
         },
         text_anchor: Anchor::Center,
@@ -44,13 +56,15 @@ fn setup(
 
     commands.spawn(OutlinedText2dBundle {
         text: OutlinedText {
-            value: "Bevy, bevy, bevy...\nAnother line".to_string(),
-            justify: JustifyOutlinedText::Center,
-            style: OutlinedTextStyle {
-                font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Regular.ttf"),
-                font_size: 20.0,
+            sections: vec![OutlinedTextSection {
+                value: "Bevy, bevy, bevy...\nAnother line".to_string(),
                 color: Color::WHITE,
                 outline: OutlineStyle::None,
+            }],
+            justify: JustifyOutlinedText::Center,
+            font_style: OutlinedFontStyle {
+                font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Regular.ttf"),
+                size: 20.0,
             },
         },
         text_anchor: Anchor::BottomLeft,
@@ -61,16 +75,28 @@ fn setup(
     commands.spawn((
         OutlinedText2dBundle {
             text: OutlinedText {
-                value: "FPS".to_string(),
-                justify: JustifyOutlinedText::Left,
-                style: OutlinedTextStyle {
-                    font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Italic.ttf"),
-                    font_size: 40.0,
-                    color: Color::BLACK,
-                    outline: OutlineStyle::Outline {
-                        width: 5.0,
-                        color: Color::WHITE,
+                sections: vec![
+                    OutlinedTextSection {
+                        value: "FPS: ".to_string(),
+                        color: Color::BLACK,
+                        outline: OutlineStyle::Outline {
+                            width: 5.0,
+                            color: Color::WHITE,
+                        },
                     },
+                    OutlinedTextSection {
+                        value: "".to_string(),
+                        color: Color::BLACK,
+                        outline: OutlineStyle::Outline {
+                            width: 5.0,
+                            color: Color::RED,
+                        },
+                    },
+                ],
+                justify: JustifyOutlinedText::Left,
+                font_style: OutlinedFontStyle {
+                    font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Italic.ttf"),
+                    size: 40.0,
                 },
             },
             text_anchor: Anchor::TopLeft,
@@ -113,7 +139,7 @@ fn update_fps_text(
         transform.translation.x = camera.translation.x - (window.width() / 2.0);
         transform.translation.y = camera.translation.y + (window.height() / 2.0);
 
-        text.value = format!("FPS: {}", fps);
+        text.sections[1].value = fps.to_string();
     }
 }
 

@@ -13,11 +13,11 @@ use bevy_utils::BoxedFuture;
 use std::mem;
 use std::sync::Arc;
 use swash::scale::{Render, ScaleContext, Scaler, Source};
-use swash::shape::ShapeContext;
-use swash::text::cluster::Whitespace;
-use swash::text::Script;
+use swash::shape::{ShapeContext, Shaper};
+use swash::text::cluster::{CharCluster, Parser, Token, Whitespace};
+use swash::text::{Codepoint, Script};
 use swash::zeno::{Cap, Format, Join, Stroke};
-use swash::{CacheKey, FontRef, GlyphId};
+use swash::{CacheKey, Charmap, FontRef, GlyphId};
 
 type SwashImage = swash::scale::image::Image;
 
@@ -87,17 +87,22 @@ impl AssetLoader for OutlinedFontLoader {
 
 #[derive(Component, Clone, Debug, Default)]
 pub struct OutlinedText {
-    pub value: String,
-    pub style: OutlinedTextStyle,
+    pub sections: Vec<OutlinedTextSection>,
+    pub font_style: OutlinedFontStyle,
     pub justify: JustifyOutlinedText,
 }
 
-#[derive(Component, Clone, Debug, Default)]
-pub struct OutlinedTextStyle {
-    pub font: Handle<OutlinedFont>,
-    pub font_size: f32,
+#[derive(Clone, Debug, Default)]
+pub struct OutlinedTextSection {
+    pub value: String,
     pub color: Color,
     pub outline: OutlineStyle,
+}
+
+#[derive(Component, Clone, Debug, Default)]
+pub struct OutlinedFontStyle {
+    pub font: Handle<OutlinedFont>,
+    pub size: f32,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -223,7 +228,7 @@ fn create_missing_text(
             continue;
         }
 
-        let handle = &text.style.font;
+        let handle = &text.font_style.font;
 
         if let Some(outlined_font) = fonts.get(handle) {
             let glyphs = create_glyphs(
@@ -250,14 +255,20 @@ fn create_glyphs(
     font_ref: FontRef,
     scale_factor: f32,
 ) -> Vec<OutlinedGlyph> {
+    let sections = &text.sections;
+    if sections.is_empty() {
+        return Vec::new();
+    }
+
     let mut lines: Vec<OutlinedGlyphLine> = Vec::new();
     let mut current_line = OutlinedGlyphLine::default();
 
-    let size = text.style.font_size / scale_factor;
+    let size = text.font_style.size / scale_factor;
 
+    let script = Script::Latin;
     let mut shaper = shape_context
         .builder(font_ref)
-        .script(Script::Latin)
+        .script(script)
         .size(size)
         .build();
 
@@ -274,8 +285,21 @@ fn create_glyphs(
         .hint(true)
         .build();
 
-    shaper.add_str(&text.value);
+    for (index, section) in sections.iter().enumerate() {
+        add_section_to_shaper(
+            &mut shaper,
+            section,
+            script,
+            font_ref.charmap(),
+            index as u32,
+        );
+    }
+
     shaper.shape_with(|glyph_cluster| {
+        let related_section = &sections[glyph_cluster.data as usize];
+        let color = related_section.color;
+        let outline = &related_section.outline;
+
         if glyph_cluster.info.whitespace() == Whitespace::Newline {
             current_line.width = x;
             x = 0.0;
@@ -286,12 +310,12 @@ fn create_glyphs(
             if let OutlineStyle::Outline {
                 width: outline_width,
                 color: outline_color,
-            } = text.style.outline
+            } = outline
             {
                 let stroke_width = outline_width / scale_factor;
 
                 let outline_bitmap = glyph_outline_to_bitmap(glyph.id, stroke_width, &mut scaler);
-                let outline_image = bitmap_to_image(&outline_bitmap, outline_color);
+                let outline_image = bitmap_to_image(&outline_bitmap, *outline_color);
 
                 if outline_image.width() != 0 && outline_image.height() != 0 {
                     let handle = images.add(outline_image);
@@ -307,7 +331,7 @@ fn create_glyphs(
             }
 
             let bitmap = glyph_to_bitmap(glyph.id, &mut scaler);
-            let image = bitmap_to_image(&bitmap, text.style.color);
+            let image = bitmap_to_image(&bitmap, color);
 
             if image.width() != 0 && image.height() != 0 {
                 let handle = images.add(image);
@@ -349,6 +373,30 @@ fn create_glyphs(
     }
 
     lines.into_iter().flat_map(|line| line.glyphs).collect()
+}
+
+fn add_section_to_shaper(
+    shaper: &mut Shaper,
+    section: &OutlinedTextSection,
+    script: Script,
+    charmap: Charmap,
+    section_index: u32,
+) {
+    let mut cluster = CharCluster::new();
+    let mut parser = Parser::new(
+        script,
+        section.value.char_indices().map(|(i, ch)| Token {
+            ch,
+            offset: i as u32,
+            len: ch.len_utf8() as u8,
+            info: ch.properties().into(),
+            data: section_index,
+        }),
+    );
+    while parser.next(&mut cluster) {
+        cluster.map(|ch| charmap.map(ch));
+        shaper.add_cluster(&cluster);
+    }
 }
 
 fn extract_outlined_text(
