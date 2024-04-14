@@ -1,20 +1,26 @@
 use bevy::app::{App, Startup, Update};
 use bevy::asset::{AssetServer, Assets};
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
+use bevy::math::Quat;
 use bevy::prelude::{
     Camera, Camera2dBundle, Circle, ClearColor, Color, ColorMaterial, Commands, Component, Mesh,
     Query, Res, ResMut, Transform, Window, With, Without,
 };
 use bevy::sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle};
+use bevy::time::Time;
 use bevy::DefaultPlugins;
 use bevy_swash::{
     JustifyOutlinedText, OutlineStyle, OutlinedFont, OutlinedFontStyle, OutlinedText,
     OutlinedText2dBundle, OutlinedTextPlugin, OutlinedTextSection,
 };
 use bevy_utils::default;
+use std::f32::consts::PI;
 
 #[derive(Component)]
 struct FpsCounter;
+
+#[derive(Component)]
+struct Spinner;
 
 fn setup(
     mut commands: Commands,
@@ -23,36 +29,38 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(OutlinedText2dBundle {
-        text: OutlinedText {
-            sections: vec![
-                OutlinedTextSection {
-                    value: "Outline".to_string(),
-                    color: Color::ORANGE,
-                    outline: OutlineStyle::Outline {
-                        width: 10.0,
-                        color: Color::RED,
+    commands
+        .spawn(OutlinedText2dBundle {
+            text: OutlinedText {
+                sections: vec![
+                    OutlinedTextSection {
+                        value: "Outline".to_string(),
+                        color: Color::ORANGE,
+                        outline: OutlineStyle::Outline {
+                            width: 10.0,
+                            color: Color::RED,
+                        },
                     },
-                },
-                OutlinedTextSection {
-                    value: "!".to_string(),
-                    color: Color::CYAN,
-                    outline: OutlineStyle::Outline {
-                        width: 10.0,
-                        color: Color::BLUE,
+                    OutlinedTextSection {
+                        value: "!".to_string(),
+                        color: Color::CYAN,
+                        outline: OutlineStyle::Outline {
+                            width: 10.0,
+                            color: Color::BLUE,
+                        },
                     },
+                ],
+                justify: JustifyOutlinedText::Left,
+                font_style: OutlinedFontStyle {
+                    font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Bold.ttf"),
+                    size: 160.0,
                 },
-            ],
-            justify: JustifyOutlinedText::Left,
-            font_style: OutlinedFontStyle {
-                font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Bold.ttf"),
-                size: 160.0,
             },
-        },
-        text_anchor: Anchor::Center,
-        transform: Transform::from_xyz(0.0, 0.0, 5.0),
-        ..default()
-    });
+            text_anchor: Anchor::Center,
+            transform: Transform::from_xyz(0.0, 0.0, 5.0),
+            ..default()
+        })
+        .insert(Spinner);
 
     commands.spawn(OutlinedText2dBundle {
         text: OutlinedText {
@@ -68,7 +76,7 @@ fn setup(
             },
         },
         text_anchor: Anchor::BottomLeft,
-        transform: Transform::from_xyz(-100.0, -100.0, 5.0),
+        transform: Transform::from_xyz(-100.0, -100.0, 7.0),
         ..default()
     });
 
@@ -143,6 +151,12 @@ fn update_fps_text(
     }
 }
 
+fn spin(time: Res<Time>, mut query: Query<&mut Transform, With<Spinner>>) {
+    for mut transform in &mut query {
+        transform.rotation = Quat::from_rotation_z(-time.elapsed_seconds() * PI / 2.0);
+    }
+}
+
 fn main() {
     let mut app = App::new();
 
@@ -151,6 +165,7 @@ fn main() {
         .add_plugins(OutlinedTextPlugin)
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, setup)
+        .add_systems(Update, spin)
         .add_systems(Update, update_fps_text);
 
     app.run();
