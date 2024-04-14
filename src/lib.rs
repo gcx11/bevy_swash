@@ -179,7 +179,7 @@ fn bitmap_to_image(bitmap: &SwashImage, color: Color) -> Image {
 }
 
 #[derive(Resource, Default)]
-pub struct OutlinedGlyphImages {
+pub struct OutlinedTextImages {
     cache: HashMap<Entity, Vec<OutlinedTextImage>>,
 }
 
@@ -209,13 +209,13 @@ pub fn create_missing_text(
     mut removed: RemovedComponents<OutlinedText>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut images: ResMut<Assets<Image>>,
-    mut outlined_glyph_images: ResMut<OutlinedGlyphImages>,
+    mut outlined_text_images: ResMut<OutlinedTextImages>,
     windows: Query<&Window, With<PrimaryWindow>>,
 ) {
     let factor_changed = scale_factor_changed.read().last().is_some();
 
     for entity in removed.read() {
-        outlined_glyph_images.cache.remove(&entity);
+        outlined_text_images.cache.remove(&entity);
     }
 
     let scale_factor = windows
@@ -230,7 +230,7 @@ pub fn create_missing_text(
         if !factor_changed
             && !text.is_changed()
             && !anchor.is_changed()
-            && outlined_glyph_images.cache.contains_key(&entity)
+            && outlined_text_images.cache.contains_key(&entity)
         {
             continue;
         }
@@ -262,7 +262,7 @@ pub fn create_missing_text(
                 glyph_images.push(composed_glyph_image);
             }
 
-            outlined_glyph_images.cache.insert(entity, glyph_images);
+            outlined_text_images.cache.insert(entity, glyph_images);
         }
     }
 }
@@ -506,7 +506,7 @@ pub fn extract_outlined_text(
     mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
     query: Extract<Query<(Entity, &GlobalTransform), With<OutlinedText>>>,
-    outlined_glyph_images: Extract<Res<OutlinedGlyphImages>>,
+    outlined_glyph_images: Extract<Res<OutlinedTextImages>>,
 ) {
     for (original_entity, global_transform) in query.iter() {
         if let Some(glyph_images) = outlined_glyph_images.cache.get(&original_entity) {
@@ -542,7 +542,7 @@ pub struct OutlinedTextPlugin;
 
 impl Plugin for OutlinedTextPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(OutlinedGlyphImages::default())
+        app.insert_resource(OutlinedTextImages::default())
             .init_asset::<OutlinedFont>()
             .init_asset_loader::<OutlinedFontLoader>()
             .add_systems(PostUpdate, create_missing_text);
