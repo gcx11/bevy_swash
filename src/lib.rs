@@ -250,16 +250,15 @@ pub fn create_missing_text(
             let (glyphs, outlines): (Vec<_>, Vec<_>) = glyph_images
                 .into_iter()
                 .partition(|glyph| glyph.offset_z == 0.0);
+
             let mut glyph_images = Vec::new();
 
-            if !glyphs.is_empty() {
-                let composed_glyph_image = compose_glyph_images(&mut images, &glyphs);
-                glyph_images.push(composed_glyph_image);
+            if let Some(text_image) = compose_glyph_images(&mut images, &glyphs) {
+                glyph_images.push(text_image);
             }
 
-            if !outlines.is_empty() {
-                let composed_glyph_image = compose_glyph_images(&mut images, &outlines);
-                glyph_images.push(composed_glyph_image);
+            if let Some(outline_image) = compose_glyph_images(&mut images, &outlines) {
+                glyph_images.push(outline_image);
             }
 
             outlined_text_images.cache.insert(entity, glyph_images);
@@ -418,7 +417,11 @@ fn add_section_to_shaper(
 fn compose_glyph_images(
     images: &mut Assets<Image>,
     glyph_images: &[GlyphImage],
-) -> OutlinedTextImage {
+) -> Option<OutlinedTextImage> {
+    if glyph_images.is_empty() {
+        return None;
+    }
+
     let z_index = glyph_images.first().unwrap().offset_z;
 
     let mut x_min = f32::INFINITY;
@@ -491,15 +494,12 @@ fn compose_glyph_images(
         RenderAssetUsages::default(),
     );
 
-    let x = x_min;
-    let y = y_min;
-
-    OutlinedTextImage {
-        x,
-        y,
+    Some(OutlinedTextImage {
+        x: x_min,
+        y: y_min,
         z: z_index,
         image: images.add(image),
-    }
+    })
 }
 
 pub fn extract_outlined_text(
