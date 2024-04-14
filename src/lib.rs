@@ -179,8 +179,8 @@ fn bitmap_to_image(bitmap: &SwashImage, color: Color) -> Image {
 }
 
 #[derive(Resource, Default)]
-struct OutlinedGlyphs {
-    cache: HashMap<Entity, Vec<ComposedGlyphImage>>,
+pub struct OutlinedGlyphImages {
+    cache: HashMap<Entity, Vec<OutlinedTextImage>>,
 }
 
 struct GlyphImage {
@@ -196,26 +196,26 @@ struct OutlinedGlyphLine {
     width: f32,
 }
 
-struct ComposedGlyphImage {
+struct OutlinedTextImage {
     x: f32,
     y: f32,
     z: f32,
     image: Handle<Image>,
 }
 
-fn create_missing_text(
+pub fn create_missing_text(
     fonts: Res<Assets<OutlinedFont>>,
     text_query: Query<(Entity, Ref<OutlinedText>, Ref<Anchor>)>,
     mut removed: RemovedComponents<OutlinedText>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut images: ResMut<Assets<Image>>,
-    mut outlined_glyphs: ResMut<OutlinedGlyphs>,
+    mut outlined_glyph_images: ResMut<OutlinedGlyphImages>,
     windows: Query<&Window, With<PrimaryWindow>>,
 ) {
     let factor_changed = scale_factor_changed.read().last().is_some();
 
     for entity in removed.read() {
-        outlined_glyphs.cache.remove(&entity);
+        outlined_glyph_images.cache.remove(&entity);
     }
 
     let scale_factor = windows
@@ -230,7 +230,7 @@ fn create_missing_text(
         if !factor_changed
             && !text.is_changed()
             && !anchor.is_changed()
-            && outlined_glyphs.cache.contains_key(&entity)
+            && outlined_glyph_images.cache.contains_key(&entity)
         {
             continue;
         }
@@ -262,7 +262,7 @@ fn create_missing_text(
                 glyph_images.push(composed_glyph_image);
             }
 
-            outlined_glyphs.cache.insert(entity, glyph_images);
+            outlined_glyph_images.cache.insert(entity, glyph_images);
         }
     }
 }
@@ -418,7 +418,7 @@ fn add_section_to_shaper(
 fn compose_glyph_images(
     images: &mut Assets<Image>,
     glyph_images: &[GlyphImage],
-) -> ComposedGlyphImage {
+) -> OutlinedTextImage {
     let z_index = glyph_images.first().unwrap().offset_z;
 
     let mut x_min = f32::INFINITY;
@@ -456,10 +456,25 @@ fn compose_glyph_images(
                 let dest_index =
                     ((dest_y + source_y) * total_width + dest_x + source_x) as usize * 4;
 
-                let source_data = &glyph.image.data[src_index..src_index + 4];
-                if source_data[3] != 0 {
-                    data[dest_index..dest_index + 4].copy_from_slice(source_data);
-                }
+                let src = &glyph.image.data[src_index..src_index + 4];
+                let dest = &mut data[dest_index..dest_index + 4];
+
+                let alpha =
+                    (255.0 - ((255.0 - src[3] as f32) * (255.0 - dest[3] as f32)) / 255.0) as u8;
+                let red = ((src[0] as f32 * (255.0 - dest[3] as f32)
+                    + dest[0] as f32 * (255.0 - src[3] as f32))
+                    / 255.0) as u8;
+                let green = ((src[1] as f32 * (255.0 - dest[3] as f32)
+                    + dest[1] as f32 * (255.0 - src[3] as f32))
+                    / 255.0) as u8;
+                let blue = ((src[2] as f32 * (255.0 - dest[3] as f32)
+                    + dest[2] as f32 * (255.0 - src[3] as f32))
+                    / 255.0) as u8;
+
+                dest[0] = red;
+                dest[1] = green;
+                dest[2] = blue;
+                dest[3] = alpha;
             }
         }
     }
@@ -479,7 +494,7 @@ fn compose_glyph_images(
     let x = x_min;
     let y = y_min;
 
-    ComposedGlyphImage {
+    OutlinedTextImage {
         x,
         y,
         z: z_index,
@@ -487,14 +502,14 @@ fn compose_glyph_images(
     }
 }
 
-fn extract_outlined_text(
+pub fn extract_outlined_text(
     mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
     query: Extract<Query<(Entity, &GlobalTransform), With<OutlinedText>>>,
-    outlined_glyphs: Extract<Res<OutlinedGlyphs>>,
+    outlined_glyph_images: Extract<Res<OutlinedGlyphImages>>,
 ) {
     for (original_entity, global_transform) in query.iter() {
-        if let Some(glyph_images) = outlined_glyphs.cache.get(&original_entity) {
+        if let Some(glyph_images) = outlined_glyph_images.cache.get(&original_entity) {
             for glyph_image in glyph_images {
                 let entity = commands.spawn_empty().id();
 
@@ -527,7 +542,7 @@ pub struct OutlinedTextPlugin;
 
 impl Plugin for OutlinedTextPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(OutlinedGlyphs::default())
+        app.insert_resource(OutlinedGlyphImages::default())
             .init_asset::<OutlinedFont>()
             .init_asset_loader::<OutlinedFontLoader>()
             .add_systems(PostUpdate, create_missing_text);
