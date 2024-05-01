@@ -6,10 +6,9 @@ use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::render::{Extract, RenderApp};
 use bevy::sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSystem};
+use bevy::utils::BoxedFuture;
 use bevy::utils::HashMap;
 use bevy::window::{PrimaryWindow, WindowScaleFactorChanged};
-use bevy_utils::thiserror::Error;
-use bevy_utils::BoxedFuture;
 use std::mem;
 use std::sync::Arc;
 use swash::scale::{Render, ScaleContext, Scaler, Source};
@@ -18,6 +17,7 @@ use swash::text::cluster::{CharCluster, Parser, Token, Whitespace};
 use swash::text::{Codepoint, Script};
 use swash::zeno::{Cap, Format, Join, Stroke};
 use swash::{CacheKey, Charmap, FontRef, GlyphId};
+use thiserror::Error;
 
 type SwashImage = swash::scale::image::Image;
 

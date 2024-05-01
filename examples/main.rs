@@ -8,12 +8,12 @@ use bevy::prelude::{
 };
 use bevy::sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle};
 use bevy::time::Time;
+use bevy::utils::default;
 use bevy::DefaultPlugins;
 use bevy_swash::{
     JustifyOutlinedText, OutlineStyle, OutlinedFont, OutlinedFontStyle, OutlinedText,
     OutlinedText2dBundle, OutlinedTextPlugin, OutlinedTextSection,
 };
-use bevy_utils::default;
 use std::f32::consts::PI;
 
 #[derive(Component)]
