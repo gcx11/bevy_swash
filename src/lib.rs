@@ -5,8 +5,7 @@ use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::render::{Extract, RenderApp};
-use bevy::sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSystem};
-use bevy::utils::BoxedFuture;
+use bevy::sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, SpriteSystem};
 use bevy::utils::HashMap;
 use bevy::window::{PrimaryWindow, WindowScaleFactorChanged};
 use std::mem;
@@ -54,30 +53,28 @@ impl AssetLoader for OutlinedFontLoader {
     type Asset = OutlinedFont;
     type Settings = ();
     type Error = OutlineFontLoaderError;
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         _settings: &'a (),
-        _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<OutlinedFont, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
+        _load_context: &'a mut LoadContext<'_>,
+    ) -> Result<OutlinedFont, OutlineFontLoaderError> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
 
-            let font = FontRef::from_index(&bytes, 0);
+        let font = FontRef::from_index(&bytes, 0);
 
-            if let Some(font_ref) = font {
-                let (offset, key) = (font_ref.offset, font_ref.key);
+        if let Some(font_ref) = font {
+            let (offset, key) = (font_ref.offset, font_ref.key);
 
-                Ok(OutlinedFont {
-                    data: Arc::new(bytes),
-                    offset,
-                    key,
-                })
-            } else {
-                Err(OutlineFontLoaderError::InvalidFont)
-            }
-        })
+            Ok(OutlinedFont {
+                data: Arc::new(bytes),
+                offset,
+                key,
+            })
+        } else {
+            Err(OutlineFontLoaderError::InvalidFont)
+        }
     }
 
     fn extensions(&self) -> &[&str] {
@@ -132,6 +129,7 @@ pub struct OutlinedText2dBundle {
     pub visibility: Visibility,
     pub inherited_visibility: InheritedVisibility,
     pub view_visibility: ViewVisibility,
+    pub sprite_source: SpriteSource,
 }
 
 fn glyph_to_bitmap(glyph_id: GlyphId, scaler: &mut Scaler) -> SwashImage {
@@ -159,7 +157,10 @@ fn glyph_outline_to_bitmap(
 }
 
 fn bitmap_to_image(bitmap: &SwashImage, color: Color) -> Image {
-    let [red, green, blue, _] = color.as_rgba_u8();
+    let linear_color = color.linear();
+    let red = (linear_color.red * 255.0) as u8;
+    let green = (linear_color.green * 255.0) as u8;
+    let blue = (linear_color.blue * 255.0) as u8;
 
     Image::new(
         Extent3d {
@@ -523,7 +524,7 @@ pub fn extract_outlined_text(
                     entity,
                     ExtractedSprite {
                         transform: *global_transform * transform,
-                        color: Color::WHITE,
+                        color: LinearRgba::WHITE,
                         rect: None,
                         custom_size: None,
                         image_handle_id: glyph_image.image.id(),
@@ -547,7 +548,7 @@ impl Plugin for OutlinedTextPlugin {
             .init_asset_loader::<OutlinedFontLoader>()
             .add_systems(PostUpdate, create_missing_text);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 ExtractSchedule,
                 extract_outlined_text.after(SpriteSystem::ExtractSprites),

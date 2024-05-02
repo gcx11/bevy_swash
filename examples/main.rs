@@ -1,5 +1,6 @@
 use bevy::app::{App, Startup, Update};
 use bevy::asset::{AssetServer, Assets};
+use bevy::color::palettes::css::*;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::math::Quat;
 use bevy::prelude::{
@@ -35,18 +36,18 @@ fn setup(
                 sections: vec![
                     OutlinedTextSection {
                         value: "Outline".to_string(),
-                        color: Color::ORANGE,
+                        color: ORANGE.into(),
                         outline: OutlineStyle::Outline {
                             width: 10.0,
-                            color: Color::RED,
+                            color: RED.into(),
                         },
                     },
                     OutlinedTextSection {
                         value: "!".to_string(),
-                        color: Color::CYAN,
+                        color: AQUA.into(),
                         outline: OutlineStyle::Outline {
                             width: 10.0,
-                            color: Color::BLUE,
+                            color: BLUE.into(),
                         },
                     },
                 ],
@@ -97,7 +98,7 @@ fn setup(
                         color: Color::BLACK,
                         outline: OutlineStyle::Outline {
                             width: 5.0,
-                            color: Color::RED,
+                            color: RED.into(),
                         },
                     },
                 ],
@@ -116,14 +117,14 @@ fn setup(
 
     commands.spawn(MaterialMesh2dBundle {
         mesh: Mesh2dHandle(meshes.add(Circle { radius: 5.0 })),
-        material: materials.add(Color::YELLOW),
+        material: materials.add(Color::from(YELLOW)),
         transform: Transform::from_xyz(0.0, 0.0, 7.0),
         ..default()
     });
 
     commands.spawn(MaterialMesh2dBundle {
         mesh: Mesh2dHandle(meshes.add(Circle { radius: 2.0 })),
-        material: materials.add(Color::CYAN),
+        material: materials.add(Color::from(AQUA)),
         transform: Transform::from_xyz(-100.0, -100.0, 7.0),
         ..default()
     });
