@@ -1,6 +1,7 @@
 use bevy::asset::io::Reader;
 use bevy::asset::LoadContext;
 use bevy::asset::{AssetLoader, AsyncReadExt};
+use bevy::prelude::LinearRgba;
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
@@ -157,10 +158,10 @@ fn glyph_outline_to_bitmap(
 }
 
 fn bitmap_to_image(bitmap: &SwashImage, color: Color) -> Image {
-    let linear_color = color.linear();
-    let red = (linear_color.red * 255.0) as u8;
-    let green = (linear_color.green * 255.0) as u8;
-    let blue = (linear_color.blue * 255.0) as u8;
+    let color: Srgba = color.into();
+    let red = (color.red * 255.0) as u8;
+    let green = (color.green * 255.0) as u8;
+    let blue = (color.blue * 255.0) as u8;
 
     Image::new(
         Extent3d {
