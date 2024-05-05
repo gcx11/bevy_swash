@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.13.2"
-"swash" = "0.1.13"
-"thiserror" = "1.0"
+swash = "0.1.13"
+thiserror = "1.0"
