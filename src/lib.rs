@@ -1,6 +1,6 @@
 use bevy::asset::io::Reader;
 use bevy::asset::LoadContext;
-use bevy::asset::{AssetLoader, AsyncReadExt};
+use bevy::asset::AssetLoader;
 use bevy::prelude::LinearRgba;
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
@@ -54,11 +54,11 @@ impl AssetLoader for OutlinedFontLoader {
     type Asset = OutlinedFont;
     type Settings = ();
     type Error = OutlineFontLoaderError;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        _settings: &'a (),
-        _load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<OutlinedFont, OutlineFontLoaderError> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -522,7 +522,7 @@ pub fn extract_outlined_text(
                 });
 
                 extracted_sprites.sprites.insert(
-                    entity,
+                    (entity, original_entity.into()),
                     ExtractedSprite {
                         transform: *global_transform * transform,
                         color: LinearRgba::WHITE,

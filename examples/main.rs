@@ -3,11 +3,8 @@ use bevy::asset::{AssetServer, Assets};
 use bevy::color::palettes::css::*;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::math::Quat;
-use bevy::prelude::{
-    Camera, Camera2dBundle, Circle, ClearColor, Color, ColorMaterial, Commands, Component, Mesh,
-    Query, Res, ResMut, Transform, Window, With, Without,
-};
-use bevy::sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle};
+use bevy::prelude::{Camera, Camera2d, Circle, ClearColor, Color, ColorMaterial, Commands, Component, Mesh, Mesh2d, Query, Res, ResMut, Single, Transform, Window, With, Without};
+use bevy::sprite::{Anchor, MeshMaterial2d};
 use bevy::time::Time;
 use bevy::utils::default;
 use bevy::DefaultPlugins;
@@ -29,7 +26,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d::default());
     commands
         .spawn(OutlinedText2dBundle {
             text: OutlinedText {
@@ -115,24 +112,22 @@ fn setup(
         FpsCounter,
     ));
 
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: Mesh2dHandle(meshes.add(Circle { radius: 5.0 })),
-        material: materials.add(Color::from(YELLOW)),
-        transform: Transform::from_xyz(0.0, 0.0, 7.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh2d(meshes.add(Circle { radius: 5.0 })),
+        MeshMaterial2d(materials.add(ColorMaterial::from_color(YELLOW))),
+        Transform::from_xyz(0.0, 0.0, 7.0),
+    ));
 
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: Mesh2dHandle(meshes.add(Circle { radius: 2.0 })),
-        material: materials.add(Color::from(AQUA)),
-        transform: Transform::from_xyz(-100.0, -100.0, 7.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh2d(meshes.add(Circle { radius: 2.0 })),
+        MeshMaterial2d(materials.add(ColorMaterial::from_color(AQUA))),
+        Transform::from_xyz(-100.0, -100.0, 7.0),
+    ));
 }
 
 fn update_fps_text(
-    window_query: Query<&Window>,
-    camera_query: Query<&Transform, With<Camera>>,
+    window: Single<&Window>,
+    camera: Single<&Transform, With<Camera>>,
     diagnostics: Res<DiagnosticsStore>,
     mut query: Query<(&mut Transform, &mut OutlinedText), (With<FpsCounter>, Without<Camera>)>,
 ) {
@@ -140,9 +135,6 @@ fn update_fps_text(
         .get(&FrameTimeDiagnosticsPlugin::FPS)
         .and_then(|fps| fps.smoothed())
         .unwrap_or_default() as i32;
-
-    let window = window_query.get_single().unwrap();
-    let camera = camera_query.get_single().unwrap();
 
     for (mut transform, mut text) in query.iter_mut() {
         transform.translation.x = camera.translation.x - (window.width() / 2.0);
@@ -154,7 +146,7 @@ fn update_fps_text(
 
 fn spin(time: Res<Time>, mut query: Query<&mut Transform, With<Spinner>>) {
     for mut transform in &mut query {
-        transform.rotation = Quat::from_rotation_z(-time.elapsed_seconds() * PI / 2.0);
+        transform.rotation = Quat::from_rotation_z(-time.elapsed_secs() * PI / 2.0);
     }
 }
 
