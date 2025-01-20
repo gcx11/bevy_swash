@@ -3,14 +3,16 @@ use bevy::asset::{AssetServer, Assets};
 use bevy::color::palettes::css::*;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::math::Quat;
-use bevy::prelude::{Camera, Camera2d, Circle, ClearColor, Color, ColorMaterial, Commands, Component, Mesh, Mesh2d, Query, Res, ResMut, Single, Transform, Window, With, Without};
+use bevy::prelude::{
+    Camera, Camera2d, Circle, ClearColor, Color, ColorMaterial, Commands, Component, Mesh, Mesh2d,
+    Query, Res, ResMut, Single, Transform, Window, With, Without,
+};
 use bevy::sprite::{Anchor, MeshMaterial2d};
 use bevy::time::Time;
-use bevy::utils::default;
 use bevy::DefaultPlugins;
 use bevy_swash::{
     JustifyOutlinedText, OutlineStyle, OutlinedFont, OutlinedFontStyle, OutlinedText,
-    OutlinedText2dBundle, OutlinedTextPlugin, OutlinedTextSection,
+    OutlinedTextPlugin, OutlinedTextSection,
 };
 use std::f32::consts::PI;
 
@@ -27,41 +29,38 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2d::default());
-    commands
-        .spawn(OutlinedText2dBundle {
-            text: OutlinedText {
-                sections: vec![
-                    OutlinedTextSection {
-                        value: "Outline".to_string(),
-                        color: ORANGE.into(),
-                        outline: OutlineStyle::Outline {
-                            width: 10.0,
-                            color: RED.into(),
-                        },
+    commands.spawn((
+        OutlinedText {
+            sections: vec![
+                OutlinedTextSection {
+                    value: "Outline".to_string(),
+                    color: ORANGE.into(),
+                    outline: OutlineStyle::Outline {
+                        width: 10.0,
+                        color: RED.into(),
                     },
-                    OutlinedTextSection {
-                        value: "!".to_string(),
-                        color: AQUA.into(),
-                        outline: OutlineStyle::Outline {
-                            width: 10.0,
-                            color: BLUE.into(),
-                        },
-                    },
-                ],
-                justify: JustifyOutlinedText::Left,
-                font_style: OutlinedFontStyle {
-                    font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Bold.ttf"),
-                    size: 160.0,
                 },
+                OutlinedTextSection {
+                    value: "!".to_string(),
+                    color: AQUA.into(),
+                    outline: OutlineStyle::Outline {
+                        width: 10.0,
+                        color: BLUE.into(),
+                    },
+                },
+            ],
+            justify: JustifyOutlinedText::Left,
+            font_style: OutlinedFontStyle {
+                font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Bold.ttf"),
+                size: 160.0,
             },
-            text_anchor: Anchor::Center,
-            transform: Transform::from_xyz(0.0, 0.0, 5.0),
-            ..default()
-        })
-        .insert(Spinner);
+        },
+        Transform::from_xyz(0.0, 0.0, 5.0),
+        Spinner,
+    ));
 
-    commands.spawn(OutlinedText2dBundle {
-        text: OutlinedText {
+    commands.spawn((
+        OutlinedText {
             sections: vec![OutlinedTextSection {
                 value: "Bevy, bevy, bevy...\nAnother line".to_string(),
                 color: Color::WHITE,
@@ -73,42 +72,38 @@ fn setup(
                 size: 20.0,
             },
         },
-        text_anchor: Anchor::BottomLeft,
-        transform: Transform::from_xyz(-100.0, -100.0, 7.0),
-        ..default()
-    });
+        Anchor::BottomLeft,
+        Transform::from_xyz(-100.0, -100.0, 7.0),
+    ));
 
     commands.spawn((
-        OutlinedText2dBundle {
-            text: OutlinedText {
-                sections: vec![
-                    OutlinedTextSection {
-                        value: "FPS: ".to_string(),
-                        color: Color::BLACK,
-                        outline: OutlineStyle::Outline {
-                            width: 5.0,
-                            color: Color::WHITE,
-                        },
+        OutlinedText {
+            sections: vec![
+                OutlinedTextSection {
+                    value: "FPS: ".to_string(),
+                    color: Color::BLACK,
+                    outline: OutlineStyle::Outline {
+                        width: 5.0,
+                        color: Color::WHITE,
                     },
-                    OutlinedTextSection {
-                        value: "".to_string(),
-                        color: Color::BLACK,
-                        outline: OutlineStyle::Outline {
-                            width: 5.0,
-                            color: RED.into(),
-                        },
-                    },
-                ],
-                justify: JustifyOutlinedText::Left,
-                font_style: OutlinedFontStyle {
-                    font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Italic.ttf"),
-                    size: 40.0,
                 },
+                OutlinedTextSection {
+                    value: "".to_string(),
+                    color: Color::BLACK,
+                    outline: OutlineStyle::Outline {
+                        width: 5.0,
+                        color: RED.into(),
+                    },
+                },
+            ],
+            justify: JustifyOutlinedText::Left,
+            font_style: OutlinedFontStyle {
+                font: asset_server.load::<OutlinedFont>("fonts/Montserrat-Italic.ttf"),
+                size: 40.0,
             },
-            text_anchor: Anchor::TopLeft,
-            transform: Transform::from_xyz(-300.0, 300.0, 5.0),
-            ..default()
         },
+        Anchor::TopLeft,
+        Transform::from_xyz(-300.0, 300.0, 5.0),
         FpsCounter,
     ));
 

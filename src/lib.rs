@@ -1,6 +1,6 @@
 use bevy::asset::io::Reader;
-use bevy::asset::LoadContext;
 use bevy::asset::AssetLoader;
+use bevy::asset::LoadContext;
 use bevy::prelude::LinearRgba;
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssetUsages;
@@ -84,6 +84,7 @@ impl AssetLoader for OutlinedFontLoader {
 }
 
 #[derive(Component, Clone, Debug, Default)]
+#[require(Transform, Visibility, Anchor, SpriteSource)]
 pub struct OutlinedText {
     pub sections: Vec<OutlinedTextSection>,
     pub font_style: OutlinedFontStyle,
@@ -119,18 +120,6 @@ pub enum JustifyOutlinedText {
     Left,
     Center,
     Right,
-}
-
-#[derive(Bundle, Clone, Debug, Default)]
-pub struct OutlinedText2dBundle {
-    pub text: OutlinedText,
-    pub text_anchor: Anchor,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub visibility: Visibility,
-    pub inherited_visibility: InheritedVisibility,
-    pub view_visibility: ViewVisibility,
-    pub sprite_source: SpriteSource,
 }
 
 fn glyph_to_bitmap(glyph_id: GlyphId, scaler: &mut Scaler) -> SwashImage {
